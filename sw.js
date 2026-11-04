@@ -1,4 +1,4 @@
-const CACHE = 'remedinho-v1';
+const CACHE = 'remedinho-v2';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
