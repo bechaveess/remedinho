@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Remedinho</title>
+<meta name="theme-color" content="#e8536f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Remedinho">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root {
+    --bg: #fff7f8;
+    --card: #ffffff;
+    --ink: #2b1d22;
+    --muted: #8a7479;
+    --line: #f1dfe3;
+    --accent: #e8536f;
+    --accent-ink: #ffffff;
+    --ok: #2fa66a;
+    --ok-soft: #d6f2e3;
+    --part: #f2b437;
+    --part-soft: #fcefd0;
+    --miss: #e05252;
+    --miss-soft: #fbe0e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1416;
+      --card: #251c1f;
+      --ink: #f6eaed;
+      --muted: #b49ea4;
+      --line: #3a2c31;
+      --ok-soft: #1d3a2b;
+      --part-soft: #3d3218;
+      --miss-soft: #3f2222;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 24px);
+    max-width: 480px; margin: 0 auto;
+  }
+  h1 { font-size: 26px; margin: 4px 0 2px; letter-spacing: -0.02em; }
+  h2 { font-size: 15px; margin: 0 0 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px; margin-bottom: 14px; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .grow { flex: 1; min-width: 0; }
+  button { font: inherit; border: 0; cursor: pointer; }
+  .btn { background: var(--accent); color: var(--accent-ink); border-radius: 14px; padding: 12px 16px; font-weight: 700; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn.small { padding: 8px 12px; font-size: 14px; border-radius: 10px; }
+  .btn.block { width: 100%; }
+  .btn:disabled { opacity: .5; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px 8px; text-align: center; }
+  .stat b { display: block; font-size: 28px; line-height: 1.1; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .stat.hot b { color: var(--accent); }
+
+  .dose { padding: 12px 0; border-top: 1px solid var(--line); }
+  .dose:first-of-type { border-top: 0; padding-top: 0; }
+  .dose .name { font-weight: 700; font-size: 17px; }
+  .dose .time { color: var(--muted); font-size: 14px; }
+  .take { min-width: 112px; padding: 14px 12px; border-radius: 14px; font-weight: 800; font-size: 16px; background: var(--accent); color: #fff; }
+  .take.done { background: var(--ok-soft); color: var(--ok); }
+  .take.late { animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.05) } }
+  .cheer { text-align: center; font-weight: 700; color: var(--ok); margin: 10px 0 0; }
+
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .navbtn { background: transparent; color: var(--ink); font-size: 22px; width: 40px; height: 40px; border-radius: 12px; }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal .wd { font-size: 11px; color: var(--muted); text-align: center; padding-bottom: 2px; }
+  .day { aspect-ratio: 1; border-radius: 10px; display: grid; place-items: center; font-size: 14px; font-weight: 600; background: transparent; color: var(--ink); }
+  .day.full { background: var(--ok-soft); color: var(--ok); }
+  .day.part { background: var(--part-soft); color: #a6750e; }
+  .day.miss { background: var(--miss-soft); color: var(--miss); }
+  .day.future, .day.before { color: var(--muted); opacity: .5; }
+  .day.today { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .legend { display: flex; gap: 14px; justify-content: center; font-size: 12px; color: var(--muted); margin-top: 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+  label.field { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input[type=text], input[type=time] {
+    font: inherit; width: 100%; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink);
+  }
+  .medrow { display: grid; grid-template-columns: 1fr 124px 40px; gap: 8px; margin-bottom: 8px; }
+  .x { background: var(--miss-soft); color: var(--miss); border-radius: 12px; font-size: 18px; }
+  .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .tabs { display: flex; gap: 8px; margin: 4px 0 16px; }
+  .tabs button { flex: 1; padding: 10px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); color: var(--ink); font-weight: 600; }
+  .tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .hidden { display: none !important; }
+  ol.steps { margin: 6px 0 0; padding-left: 20px; }
+  ol.steps li { margin-bottom: 4px; }
+
+  /* alarme de tela cheia */
+  #alarm {
+    position: fixed; inset: 0; z-index: 50; background: var(--accent); color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    padding: 24px; animation: flash 1s infinite;
+  }
+  @keyframes flash { 0%,100% { background: #e8536f } 50% { background: #b8263f } }
+  #alarm .big { font-size: 72px; line-height: 1; }
+  #alarm h3 { font-size: 30px; margin: 16px 0 6px; }
+  #alarm p { margin: 0 0 28px; font-size: 18px; opacity: .9; }
+  #alarm .btn { background: #fff; color: var(--accent); font-size: 20px; padding: 18px 28px; width: 100%; max-width: 320px; }
+  #alarm .snooze { background: transparent; color: #fff; border: 2px solid #fff; margin-top: 12px; font-size: 16px; padding: 12px; }
+
+  /* folha de edição de dia */
+  #sheet { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; }
+  #sheet .panel { background: var(--card); width: 100%; max-width: 480px; margin: 0 auto; border-radius: 22px 22px 0 0; padding: 20px 16px calc(env(safe-area-inset-bottom) + 20px); }
+  .check { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); font-weight: 600; }
+  .check input { width: 24px; height: 24px; accent-color: var(--ok); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="hello">Oi! 💊</h1>
+  <p class="sub" id="dateline"></p>
+</header>
+
+<nav class="tabs">
+  <button data-tab="home" class="on">Hoje</button>
+  <button data-tab="settings">Ajustes</button>
+</nav>
+
+<main id="home">
+  <section class="stats">
+    <div class="stat hot"><b id="streak">0</b><span>dias seguidos 🔥</span></div>
+    <div class="stat"><b id="total">0</b><span>dias completos</span></div>
+    <div class="stat"><b id="rate">–</b><span>nos últimos 30</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Hoje</h2>
+    <div id="doses"></div>
+    <p class="cheer hidden" id="cheer"></p>
+  </section>
+
+  <section class="card">
+    <div class="cal-head">
+      <button class="navbtn" id="prev" aria-label="Mês anterior">‹</button>
+      <b id="month"></b>
+      <button class="navbtn" id="next" aria-label="Próximo mês">›</button>
+    </div>
+    <div class="cal" id="cal"></div>
+    <div class="legend">
+      <span><i style="background:var(--ok)"></i>tomou tudo</span>
+      <span><i style="background:var(--part)"></i>parcial</span>
+      <span><i style="background:var(--miss)"></i>esqueceu</span>
+    </div>
+    <p class="hint" style="text-align:center">Toque num dia pra corrigir.</p>
+  </section>
+</main>
+
+<main id="settings" class="hidden">
+  <section class="card">
+    <h2>Remédios e horários</h2>
+    <div id="medlist"></div>
+    <button class="btn ghost small" id="addmed">+ adicionar remédio</button>
+    <label class="field" for="who">Seu nome (pra aparecer no topo)</label>
+    <input type="text" id="who" placeholder="ex: Ana">
+    <button class="btn block" id="save" style="margin-top:14px">Salvar</button>
+  </section>
+
+  <section class="card">
+    <h2>Alarme forte ⏰</h2>
+    <p style="margin:0 0 10px">Com o app aberto, ele toca um alarme alto e pisca a tela até você marcar que tomou.
+      Mas <b>nenhum site consegue tocar com o celular bloqueado</b>, então crie também um alarme no Relógio do celular:</p>
+    <div id="androidAlarm" class="hidden">
+      <div id="alarmLinks"></div>
+      <p class="hint">Cada botão abre o Relógio com o alarme já preenchido. É só confirmar.</p>
+    </div>
+    <div id="iosAlarm" class="hidden">
+      <ol class="steps">
+        <li>Abra o app <b>Relógio</b> → <b>Alarmes</b> → <b>+</b></li>
+        <li>Coloque o horário do remédio e marque <b>Repetir: todos os dias</b></li>
+        <li>Em <b>Rótulo</b>, escreva "Remédio 💊"</li>
+      </ol>
+      <p class="hint">Quando tocar, abra o Remedinho e toque em "Tomei".</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Lembrete na agenda 📅</h2>
+    <p style="margin:0 0 10px">Cria um evento diário na agenda com aviso no horário de cada remédio. Funciona mesmo com o app fechado.</p>
+    <button class="btn ghost block" id="ics">Adicionar à agenda</button>
+    <p class="hint">No iPhone, faça isso pelo Safari (não pelo ícone da tela inicial).</p>
+  </section>
+
+  <section class="card">
+    <h2>Notificações</h2>
+    <p style="margin:0 0 10px">Permite o app avisar quando ele estiver aberto em segundo plano.</p>
+    <button class="btn ghost block" id="notif">Ativar notificações</button>
+  </section>
+
+  <section class="card">
+    <h2>Testar</h2>
+    <button class="btn ghost block" id="test">Testar o alarme agora</button>
+    <p class="hint">Os dados ficam salvos só neste celular.</p>
+  </section>
+</main>
+
+<div id="alarm" class="hidden" role="alertdialog" aria-live="assertive">
+  <div class="big">💊</div>
+  <h3>Hora do remédio!</h3>
+  <p id="alarmText"></p>
+  <button class="btn" id="alarmTake">Tomei ✓</button>
+  <button class="btn snooze" id="alarmSnooze">Me lembra em 10 min</button>
+</div>
+
+<div id="sheet" class="hidden">
+  <div class="panel">
+    <h2 id="sheetTitle"></h2>
+    <div id="sheetList"></div>
+    <button class="btn block" id="sheetClose" style="margin-top:14px">Pronto</button>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2, '0');
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fromKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+function load(name, fallback) {
+  try { const v = localStorage.getItem(name); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+}
+function store(name, value) {
+  try { localStorage.setItem(name, JSON.stringify(value)); } catch {}
+}
+
+let settings = load('rm.settings', null) || {
+  who: '',
+  start: keyOf(new Date()),
+  meds: [{ id: uid(), name: 'Remédio', time: '08:00' }],
+};
+let log = load('rm.log', {});        // { 'AAAA-MM-DD': { medId: horário ISO } }
+let snoozed = load('rm.snooze', {}); // { medId: timestamp até quando silenciar }
+let viewMonth = new Date(); viewMonth.setDate(1);
+
+const save = () => { store('rm.settings', settings); store('rm.log', log); store('rm.snooze', snoozed); };
+
+// ---------- status dos dias ----------
+function dayStatus(k) {
+  const today = keyOf(new Date());
+  if (k > today) return 'future';
+  if (k < settings.start && !log[k]) return 'before';
+  const taken = settings.meds.filter(m => log[k]?.[m.id]).length;
+  if (taken === settings.meds.length && taken > 0) return 'full';
+  if (taken > 0) return 'part';
+  return k === today ? 'pending' : 'miss';
+}
+
+function streak() {
+  const d = new Date();
+  if (dayStatus(keyOf(d)) !== 'full') d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (dayStatus(keyOf(d)) === 'full') { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+
+function render() {
+  const now = new Date();
+  const todayK = keyOf(now);
+  $('#hello').textContent = settings.who ? `Oi, ${settings.who}! 💊` : 'Oi! 💊';
+  $('#dateline').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // estatísticas
+  $('#streak').textContent = streak();
+  $('#total').textContent = Object.keys(log).filter(k => dayStatus(k) === 'full').length;
+  let counted = 0, full = 0;
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const s = dayStatus(keyOf(d));
+    if (s === 'before' || s === 'future' || s === 'pending') continue;
+    counted++; if (s === 'full') full++;
+  }
+  $('#rate').textContent = counted ? Math.round(full / counted * 100) + '%' : '–';
+
+  // doses de hoje
+  const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const meds = [...settings.meds].sort((a, b) => a.time.localeCompare(b.time));
+  $('#doses').innerHTML = meds.map(m => {
+    const at = log[todayK]?.[m.id];
+    const late = !at && m.time <= nowHM;
+    const label = at ? `✓ ${new Date(at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Tomei';
+    return `<div class="dose row">
+      <div class="grow"><div class="name">${esc(m.name)}</div><div class="time">${m.time}${late ? ' · atrasado' : ''}</div></div>
+      <button class="take ${at ? 'done' : ''} ${late ? 'late' : ''}" data-take="${m.id}">${label}</button>
+    </div>`;
+  }).join('');
+  const allDone = dayStatus(todayK) === 'full';
+  $('#cheer').classList.toggle('hidden', !allDone);
+  if (allDone) $('#cheer').textContent = `Tudo certo por hoje${settings.who ? ', ' + settings.who : ''}! 💖`;
+
+  renderCal();
+}
+
+function renderCal() {
+  const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+  const label = viewMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  $('#month').textContent = label[0].toUpperCase() + label.slice(1);
+  const first = new Date(y, m, 1).getDay();
+  const days = new Date(y, m + 1, 0).getDate();
+  const todayK = keyOf(new Date());
+  let html = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(w => `<div class="wd">${w}</div>`).join('');
+  html += '<div></div>'.repeat(first);
+  for (let d = 1; d <= days; d++) {
+    const k = keyOf(new Date(y, m, d));
+    const s = dayStatus(k);
+    html += `<button class="day ${s} ${k === todayK ? 'today' : ''}" data-day="${k}" ${s === 'future' ? 'disabled' : ''}>${d}</button>`;
+  }
+  $('#cal').innerHTML = html;
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function toggleTake(k, id, force) {
+  log[k] = log[k] || {};
+  const on = force ?? !log[k][id];
+  if (on) log[k][id] = new Date().toISOString(); else delete log[k][id];
+  if (!Object.keys(log[k]).length) delete log[k];
+  delete snoozed[id];
+  save(); render(); checkAlarm();
+}
+
+// ---------- alarme ----------
+let audio, beepTimer, alarmMeds = [];
+function unlockAudio() {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+  if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch {} }
+  if (audio && audio.state === 'suspended') audio.resume();
+}
+function beep() {
+  if (!audio) return;
+  const t = audio.currentTime;
+  [0, 0.18, 0.36].forEach((off, i) => {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = 'square'; o.frequency.value = i % 2 ? 660 : 990;
+    g.gain.setValueAtTime(0.9, t + off); g.gain.exponentialRampToValueAtTime(0.001, t + off + 0.15);
+    o.connect(g).connect(audio.destination); o.start(t + off); o.stop(t + off + 0.16);
+  });
+  if (navigator.vibrate) navigator.vibrate([400, 150, 400]);
+}
+function startAlarm(meds) {
+  alarmMeds = meds;
+  $('#alarmText').textContent = meds.map(m => `${m.name} (${m.time})`).join(' · ');
+  if (!$('#alarm').classList.contains('hidden')) return;
+  $('#alarm').classList.remove('hidden');
+  unlockAudio(); beep();
+  clearInterval(beepTimer); beepTimer = setInterval(beep, 900);
+  notify(meds);
+}
+function stopAlarm() {
+  $('#alarm').classList.add('hidden');
+  clearInterval(beepTimer);
+  if (navigator.vibrate) navigator.vibrate(0);
+}
+function checkAlarm() {
+  const now = new Date(), k = keyOf(now);
+  const nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  if (!settings.configured) return;
+  const due = settings.meds.filter(m => m.time <= nowHM && !log[k]?.[m.id] && !(snoozed[m.id] > Date.now()));
+  if (due.length) startAlarm(due); else stopAlarm();
+}
+async function notify(meds) {
+  if (!('Notification' in window) || Notification.permission !== 'granted' || !document.hidden) return;
+  const reg = await navigator.serviceWorker?.getRegistration();
+  const body = meds.map(m => m.name).join(', ');
+  if (reg) reg.showNotification('Hora do remédio! 💊', { body, tag: 'remedio', renotify: true, requireInteraction: true, vibrate: [400, 150, 400] });
+  else new Notification('Hora do remédio! 💊', { body });
+}
+
+$('#alarmTake').onclick = () => { const k = keyOf(new Date()); alarmMeds.forEach(m => toggleTake(k, m.id, true)); stopAlarm(); };
+$('#alarmSnooze').onclick = () => { alarmMeds.forEach(m => snoozed[m.id] = Date.now() + 10 * 60 * 1000); save(); stopAlarm(); };
+
+// ---------- ajustes ----------
+function renderSettings() {
+  $('#medlist').innerHTML = settings.meds.map(m => `
+    <div class="medrow" data-id="${m.id}">
+      <input type="text" value="${esc(m.name)}" placeholder="Nome do remédio" aria-label="Nome">
+      <input type="time" value="${m.time}" aria-label="Horário">
+      <button class="x" data-del="${m.id}" aria-label="Remover">×</button>
+    </div>`).join('');
+  const android = /Android/i.test(navigator.userAgent);
+  $('#androidAlarm').classList.toggle('hidden', !android);
+  $('#iosAlarm').classList.toggle('hidden', android);
+  $('#alarmLinks').innerHTML = settings.meds.map(m => {
+    const [h, mi] = m.time.split(':').map(Number);
+    const msg = encodeURIComponent(`Remédio: ${m.name}`);
+    return `<a class="btn ghost block" style="display:block;text-align:center;text-decoration:none;margin-bottom:8px"
+      href="intent:#Intent;action=android.intent.action.SET_ALARM;i.android.intent.extra.alarm.HOUR=${h};i.android.intent.extra.alarm.MINUTES=${mi};S.android.intent.extra.alarm.MESSAGE=${msg};end">
+      Criar alarme das ${m.time} (${esc(m.name)})</a>`;
+  }).join('');
+  const n = $('#notif');
+  if (!('Notification' in window)) { n.disabled = true; n.textContent = 'Adicione à tela de início primeiro'; }
+  else if (Notification.permission === 'granted') { n.disabled = true; n.textContent = 'Notificações ativadas ✓'; }
+}
+function readMedForm() {
+  return [...document.querySelectorAll('.medrow')].map(r => {
+    const [name, time] = r.querySelectorAll('input');
+    return { id: r.dataset.id, name: name.value.trim() || 'Remédio', time: time.value || '08:00' };
+  });
+}
+$('#addmed').onclick = () => { settings.meds = readMedForm(); settings.meds.push({ id: uid(), name: '', time: '20:00' }); renderSettings(); };
+$('#medlist').onclick = e => {
+  const id = e.target.dataset.del; if (!id) return;
+  settings.meds = readMedForm().filter(m => m.id !== id);
+  if (!settings.meds.length) settings.meds.push({ id: uid(), name: 'Remédio', time: '08:00' });
+  renderSettings();
+};
+$('#save').onclick = () => {
+  settings.meds = readMedForm();
+  settings.who = $('#who').value.trim();
+  settings.configured = true;
+  save(); renderSettings(); render(); checkAlarm();
+  $('#save').textContent = 'Salvo ✓'; setTimeout(() => $('#save').textContent = 'Salvar', 1500);
+};
+$('#notif').onclick = async () => { unlockAudio(); await Notification.requestPermission(); renderSettings(); };
+$('#test').onclick = () => { unlockAudio(); startAlarm([{ name: 'Teste', time: 'agora' }]); alarmMeds = []; };
+
+$('#ics').onclick = () => {
+  const d = new Date(); d.setDate(d.getDate() + (settings.meds.every(m => m.time <= `${pad(d.getHours())}:${pad(d.getMinutes())}`) ? 1 : 0));
+  const day = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const events = settings.meds.map(m => [
+    'BEGIN:VEVENT', `UID:${m.id}-remedinho`, `DTSTAMP:${stamp}`,
+    `DTSTART:${day}T${m.time.replace(':', '')}00`, 'DURATION:PT10M', 'RRULE:FREQ=DAILY',
+    `SUMMARY:💊 ${m.name}`, 'BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:PT0M',
+    `DESCRIPTION:Hora do remédio: ${m.name}`, 'END:VALARM', 'END:VEVENT',
+  ].join('\r\n'));
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Remedinho//PT-BR', ...events, 'END:VCALENDAR'].join('\r\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+  a.download = 'remedinho.ics';
+  a.click();
+};
+
+// ---------- navegação ----------
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  $('#home').classList.toggle('hidden', b.dataset.tab !== 'home');
+  $('#settings').classList.toggle('hidden', b.dataset.tab !== 'settings');
+  if (b.dataset.tab === 'settings') { $('#who').value = settings.who || ''; renderSettings(); }
+});
+$('#doses').onclick = e => { const id = e.target.closest('[data-take]')?.dataset.take; if (id) toggleTake(keyOf(new Date()), id); };
+$('#prev').onclick = () => { viewMonth.setMonth(viewMonth.getMonth() - 1); renderCal(); };
+$('#next').onclick = () => { viewMonth.setMonth(viewMonth.getMonth() + 1); renderCal(); };
+
+let sheetDay;
+$('#cal').onclick = e => {
+  const k = e.target.closest('[data-day]')?.dataset.day; if (!k) return;
+  sheetDay = k;
+  $('#sheetTitle').textContent = fromKey(k).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('#sheetList').innerHTML = settings.meds.map(m => `
+    <label class="check"><input type="checkbox" data-med="${m.id}" ${log[k]?.[m.id] ? 'checked' : ''}> ${esc(m.name)} <span class="hint" style="margin:0 0 0 auto">${m.time}</span></label>`).join('');
+  $('#sheet').classList.remove('hidden');
+};
+$('#sheetList').onchange = e => {
+  const id = e.target.dataset.med;
+  if (id) { if (sheetDay < settings.start) settings.start = sheetDay; toggleTake(sheetDay, id, e.target.checked); }
+};
+$('#sheetClose').onclick = () => $('#sheet').classList.add('hidden');
+$('#sheet').onclick = e => { if (e.target.id === 'sheet') $('#sheet').classList.add('hidden'); };
+
+document.addEventListener('pointerdown', unlockAudio, { once: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); checkAlarm(); } });
+setInterval(() => { render(); checkAlarm(); }, 20000);
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+render(); checkAlarm();
+if (!settings.configured) document.querySelector('[data-tab="settings"]').click();
+</script>
+</body>
+</html>
