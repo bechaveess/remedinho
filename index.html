@@ -104,6 +104,19 @@
   .day.off { color: var(--muted); }
   .rest { text-align: center; padding: 6px 0; }
   .rest b { display: block; font-size: 18px; margin-bottom: 4px; }
+
+  /* recado único, com cara de notificação */
+  #note {
+    position: fixed; z-index: 60; left: 12px; right: 12px; top: calc(env(safe-area-inset-top) + 10px);
+    max-width: 456px; margin: 0 auto; display: flex; gap: 12px; align-items: center;
+    background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 20px;
+    padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.18); text-align: left;
+    animation: drop .5s cubic-bezier(.2,1.2,.4,1);
+  }
+  #note img { width: 40px; height: 40px; border-radius: 10px; }
+  #note small { color: var(--muted); font-size: 12px; }
+  #note b { display: block; font-size: 16px; }
+  @keyframes drop { from { transform: translateY(-140%); } to { transform: none; } }
   .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
   .tabs { display: flex; gap: 8px; margin: 4px 0 16px; }
   .tabs button { flex: 1; padding: 10px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); color: var(--ink); font-weight: 600; }
@@ -544,6 +557,20 @@ setInterval(() => { render(); checkAlarm(); }, 20000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 render(); checkAlarm();
 if (!settings.configured) document.querySelector('[data-tab="settings"]').click();
+
+// recado que aparece uma única vez neste celular
+const NOTE = { id: 'te-amo-1', text: 'Te amo bafudona❤️' };
+if (!load('rm.note.' + NOTE.id, false)) {
+  setTimeout(() => {
+    const n = document.createElement('button');
+    n.id = 'note';
+    n.innerHTML = `<img src="icon-192.png" alt=""><span class="grow"><small>Remedinho · agora</small><b>${esc(NOTE.text)}</b></span>`;
+    n.onclick = () => n.remove();
+    document.body.append(n);
+    store('rm.note.' + NOTE.id, true);
+    if (navigator.vibrate) navigator.vibrate(200);
+  }, 800);
+}
 </script>
 </body>
 </html>
