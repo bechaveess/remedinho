@@ -225,8 +225,10 @@
 
   <section class="card">
     <h2>Notificações</h2>
-    <p style="margin:0 0 10px">Permite o app avisar quando ele estiver aberto em segundo plano.</p>
-    <button class="btn ghost block" id="notif">Ativar notificações</button>
+    <p style="margin:0 0 10px">Deixa o app mostrar o aviso do remédio enquanto ele está aberto ou acabou de ir pro fundo.
+      <b>Com o app fechado não chega</b>: pra isso use o alarme do Relógio.</p>
+    <button class="btn ghost block" id="notif">Permitir notificações</button>
+    <p class="hint" id="notifStatus"></p>
   </section>
 
   <section class="card">
@@ -437,7 +439,7 @@ async function notify(meds) {
   if (!('Notification' in window) || Notification.permission !== 'granted' || !document.hidden) return;
   const reg = await navigator.serviceWorker?.getRegistration();
   const body = meds.map(m => m.name).join(', ');
-  if (reg) reg.showNotification('Hora do remédio! 💊', { body, tag: 'remedio', renotify: true, requireInteraction: true, vibrate: [400, 150, 400] });
+  if (reg) await reg.showNotification('Hora do remédio! 💊', { body, tag: 'remedio', renotify: true, requireInteraction: true, vibrate: [400, 150, 400] });
   else new Notification('Hora do remédio! 💊', { body });
 }
 
@@ -467,9 +469,19 @@ function renderSettings() {
       href="intent:#Intent;action=android.intent.action.SET_ALARM;i.android.intent.extra.alarm.HOUR=${h};i.android.intent.extra.alarm.MINUTES=${mi};S.android.intent.extra.alarm.MESSAGE=${msg};end">
       ${esc(m.name)}: ${m.time} (${daysLabel(m)})</a>`;
   }).join('');
-  const n = $('#notif');
-  if (!('Notification' in window)) { n.disabled = true; n.textContent = 'Adicione à tela de início primeiro'; }
-  else if (Notification.permission === 'granted') { n.disabled = true; n.textContent = 'Notificações ativadas ✓'; }
+  const n = $('#notif'), st = $('#notifStatus');
+  const ios = /iPhone|iPad/i.test(navigator.userAgent);
+  if (!('Notification' in window)) {
+    n.disabled = true;
+    st.textContent = ios ? 'No iPhone isso só funciona abrindo o Remedinho pelo ícone da tela de início (iOS 16.4 ou mais novo).'
+      : 'Este navegador não permite notificações.';
+  } else if (Notification.permission === 'granted') {
+    n.textContent = 'Mandar notificação de teste';
+    st.textContent = 'Permitido ✓';
+  } else if (Notification.permission === 'denied') {
+    st.textContent = ios ? 'Bloqueado. Libere em Ajustes do iPhone → Notificações → Remedinho.'
+      : 'Bloqueado. Libere em Configurações do celular → Apps → Chrome (ou Remedinho) → Notificações.';
+  }
 }
 function readMedForm() {
   return [...document.querySelectorAll('.medbox')].map(r => {
@@ -493,7 +505,19 @@ $('#save').onclick = () => {
   save(); renderSettings(); render(); checkAlarm();
   $('#save').textContent = 'Salvo ✓'; setTimeout(() => $('#save').textContent = 'Salvar', 1500);
 };
-$('#notif').onclick = async () => { unlockAudio(); await Notification.requestPermission(); renderSettings(); };
+$('#notif').onclick = async () => {
+  unlockAudio();
+  const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  if (perm === 'granted') {
+    // no iPhone só funciona pelo service worker; new Notification() não existe lá
+    try {
+      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(r, 3000))]);
+      if (reg) await reg.showNotification('Remedinho 💊', { body: 'Notificações funcionando ✓', tag: 'teste' });
+      else new Notification('Remedinho 💊', { body: 'Notificações funcionando ✓' });
+    } catch (e) { $('#notifStatus').textContent = 'Erro ao mostrar: ' + e.message; return; }
+  }
+  renderSettings();
+};
 $('#test').onclick = () => { unlockAudio(); startAlarm([{ name: 'Teste', time: 'agora' }]); alarmMeds = []; };
 
 $('#ics').onclick = () => {
