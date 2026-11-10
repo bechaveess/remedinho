@@ -225,9 +225,9 @@
 
   <section class="card">
     <h2>Notificações</h2>
-    <p style="margin:0 0 10px">Deixa o app mostrar o aviso do remédio enquanto ele está aberto ou acabou de ir pro fundo.
-      <b>Com o app fechado não chega</b>: pra isso use o alarme do Relógio.</p>
-    <button class="btn ghost block" id="notif">Permitir notificações</button>
+    <p style="margin:0 0 10px">Avisa no horário de cada remédio <b>mesmo com o app fechado</b>, e repete a cada 10 minutos (por até 1 hora) até você marcar que tomou.
+      O som é o de notificação normal; pro som alto, use também o alarme do Relógio.</p>
+    <button class="btn ghost block" id="notif">Ativar notificações</button>
     <p class="hint" id="notifStatus"></p>
   </section>
 
@@ -393,7 +393,7 @@ function toggleTake(k, id, force) {
   if (on) log[k][id] = new Date().toISOString(); else delete log[k][id];
   if (!Object.keys(log[k]).length) delete log[k];
   delete snoozed[id];
-  save(); render(); checkAlarm();
+  save(); render(); checkAlarm(); syncPush();
 }
 
 // ---------- alarme ----------
@@ -421,7 +421,6 @@ function startAlarm(meds) {
   $('#alarm').classList.remove('hidden');
   unlockAudio(); beep();
   clearInterval(beepTimer); beepTimer = setInterval(beep, 900);
-  notify(meds);
 }
 function stopAlarm() {
   $('#alarm').classList.add('hidden');
@@ -435,13 +434,39 @@ function checkAlarm() {
   const due = medsOn(k).filter(m => m.time <= nowHM && !log[k]?.[m.id] && !(snoozed[m.id] > Date.now()));
   if (due.length) startAlarm(due); else stopAlarm();
 }
-async function notify(meds) {
-  if (!('Notification' in window) || Notification.permission !== 'granted' || !document.hidden) return;
-  const reg = await navigator.serviceWorker?.getRegistration();
-  const body = meds.map(m => m.name).join(', ');
-  if (reg) await reg.showNotification('Hora do remédio! 💊', { body, tag: 'remedio', renotify: true, requireInteraction: true, vibrate: [400, 150, 400] });
-  else new Notification('Hora do remédio! 💊', { body });
+// ---------- push (servidor na Cloudflare manda os lembretes com o app fechado) ----------
+const PUSH_URL = 'https://remedinho-push.bernardo-moraisar.workers.dev';
+const VAPID_PUBLIC = 'BIy2TO0ZLFxQqnpkvnBzBrUIoKZXsUIIr8DtU_e46A0j7N2E5g8UKFkbEV8hERuviHl-4LR-tvS06An6gKLJdv0';
+const canNotify = () => typeof Notification !== 'undefined';
+const b64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4)), c => c.charCodeAt(0));
+
+async function pushSub(create) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub && create) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(VAPID_PUBLIC) });
+  return sub;
 }
+// manda pro servidor a inscrição, os remédios e o que já foi tomado hoje e ontem
+async function doSync(create) {
+  if (!canNotify() || Notification.permission !== 'granted') return null;
+  const sub = await pushSub(create);
+  if (!sub) return null;
+  const taken = {};
+  for (let i = 0; i < 2; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = keyOf(d);
+    if (log[k]) taken[k] = Object.keys(log[k]);
+  }
+  const res = await fetch(PUSH_URL + '/sync', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sub: sub.toJSON(), tz: Intl.DateTimeFormat().resolvedOptions().timeZone, meds: settings.configured ? settings.meds : [], taken }),
+  });
+  if (!res.ok) throw new Error('servidor respondeu ' + res.status);
+  return sub;
+}
+let syncTimer;
+function syncPush() { clearTimeout(syncTimer); syncTimer = setTimeout(() => doSync(false).catch(e => console.warn(e)), 500); }
 
 $('#alarmTake').onclick = () => { const k = keyOf(new Date()); alarmMeds.forEach(m => toggleTake(k, m.id, true)); stopAlarm(); };
 $('#alarmSnooze').onclick = () => { alarmMeds.forEach(m => snoozed[m.id] = Date.now() + 10 * 60 * 1000); save(); stopAlarm(); };
@@ -471,13 +496,15 @@ function renderSettings() {
   }).join('');
   const n = $('#notif'), st = $('#notifStatus');
   const ios = /iPhone|iPad/i.test(navigator.userAgent);
-  if (!('Notification' in window)) {
+  if (!canNotify() || !('PushManager' in window)) {
     n.disabled = true;
     st.textContent = ios ? 'No iPhone isso só funciona abrindo o Remedinho pelo ícone da tela de início (iOS 16.4 ou mais novo).'
       : 'Este navegador não permite notificações.';
   } else if (Notification.permission === 'granted') {
-    n.textContent = 'Mandar notificação de teste';
-    st.textContent = 'Permitido ✓';
+    pushSub(false).then(sub => {
+      n.textContent = sub ? 'Mandar notificação de teste' : 'Ativar notificações';
+      st.textContent = sub ? 'Ativado ✓ Os lembretes chegam mesmo com o app fechado.' : 'Toque no botão pra terminar de ativar.';
+    }).catch(() => {});
   } else if (Notification.permission === 'denied') {
     st.textContent = ios ? 'Bloqueado. Libere em Ajustes do iPhone → Notificações → Remedinho.'
       : 'Bloqueado. Libere em Configurações do celular → Apps → Chrome (ou Remedinho) → Notificações.';
@@ -502,21 +529,24 @@ $('#save').onclick = () => {
   settings.meds = readMedForm();
   settings.who = $('#who').value.trim();
   settings.configured = true;
-  save(); renderSettings(); render(); checkAlarm();
+  save(); renderSettings(); render(); checkAlarm(); syncPush();
   $('#save').textContent = 'Salvo ✓'; setTimeout(() => $('#save').textContent = 'Salvar', 1500);
 };
 $('#notif').onclick = async () => {
   unlockAudio();
+  const st = $('#notifStatus');
   const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
-  if (perm === 'granted') {
-    // no iPhone só funciona pelo service worker; new Notification() não existe lá
-    try {
-      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(r, 3000))]);
-      if (reg) await reg.showNotification('Remedinho 💊', { body: 'Notificações funcionando ✓', tag: 'teste' });
-      else new Notification('Remedinho 💊', { body: 'Notificações funcionando ✓' });
-    } catch (e) { $('#notifStatus').textContent = 'Erro ao mostrar: ' + e.message; return; }
-  }
-  renderSettings();
+  if (perm !== 'granted') { renderSettings(); return; }
+  st.textContent = 'Conectando…';
+  try {
+    const sub = await doSync(true);
+    if (!sub) { st.textContent = 'Este celular não aceitou o push.'; return; }
+    const res = await fetch(PUSH_URL + '/test', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }),
+    });
+    $('#notif').textContent = 'Mandar notificação de teste';
+    st.textContent = res.ok ? 'Ativado ✓ A notificação de teste chega em alguns segundos.' : 'O servidor não conseguiu mandar o teste. Tente de novo.';
+  } catch (e) { st.textContent = 'Erro: ' + e.message; }
 };
 $('#test').onclick = () => { unlockAudio(); startAlarm([{ name: 'Teste', time: 'agora' }]); alarmMeds = []; };
 
@@ -579,6 +609,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { re
 setInterval(() => { render(); checkAlarm(); }, 20000);
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+syncPush();
 render(); checkAlarm();
 if (!settings.configured) document.querySelector('[data-tab="settings"]').click();
 
