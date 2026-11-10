@@ -239,6 +239,7 @@
     <h2>Testar</h2>
     <button class="btn ghost block" id="test">Testar o alarme agora</button>
     <p class="hint">Os dados ficam salvos só neste celular.</p>
+    <p class="hint" id="diag" style="font-family:ui-monospace,monospace;font-size:11px;word-break:break-all"></p>
   </section>
 </main>
 
@@ -482,7 +483,7 @@ function report(step, extra = {}) {
   fetch(PUSH_URL + '/log', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      step, v: 7, standalone, ua: navigator.userAgent.slice(0, 160),
+      step, v: 8, standalone, ua: navigator.userAgent.slice(0, 160),
       perm: canNotify() ? Notification.permission : 'sem-Notification',
       pushManager: 'PushManager' in window, sw: !!navigator.serviceWorker?.controller, ...extra,
     }),
@@ -495,7 +496,17 @@ $('#alarmTake').onclick = () => { const k = keyOf(new Date()); alarmMeds.forEach
 $('#alarmSnooze').onclick = () => { alarmMeds.forEach(m => snoozed[m.id] = Date.now() + 10 * 60 * 1000); save(); stopAlarm(); };
 
 // ---------- ajustes ----------
+async function renderDiag() {
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  let server = '…';
+  try { server = (await fetch(PUSH_URL, { cache: 'no-store' })).ok ? 'ok' : 'erro'; } catch (e) { server = 'bloqueado (' + e.message + ')'; }
+  let sub = '?';
+  try { sub = (await pushSub(false)) ? 'sim' : 'não'; } catch (e) { sub = 'erro ' + e.message; }
+  $('#diag').textContent = `versão 8 · tela de início: ${standalone ? 'sim' : 'NÃO'} · permissão: ${canNotify() ? Notification.permission : 'indisponível'}`
+    + ` · push: ${'PushManager' in window ? 'sim' : 'NÃO'} · inscrito: ${sub} · servidor: ${server}`;
+}
 function renderSettings() {
+  renderDiag();
   $('#medlist').innerHTML = settings.meds.map(m => `
     <div class="medbox" data-id="${m.id}">
       <div class="medrow">
