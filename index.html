@@ -476,6 +476,18 @@ async function doSync(create) {
   if (!res.ok) throw new Error('servidor respondeu ' + res.status);
   return sub;
 }
+// manda pro servidor em que passo a ativação está, pra dar pra investigar de longe
+function report(step, extra = {}) {
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  fetch(PUSH_URL + '/log', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      step, v: 7, standalone, ua: navigator.userAgent.slice(0, 160),
+      perm: canNotify() ? Notification.permission : 'sem-Notification',
+      pushManager: 'PushManager' in window, sw: !!navigator.serviceWorker?.controller, ...extra,
+    }),
+  }).catch(() => {});
+}
 let syncTimer;
 function syncPush() { clearTimeout(syncTimer); syncTimer = setTimeout(() => doSync(false).catch(e => console.warn(e)), 500); }
 
@@ -546,18 +558,22 @@ $('#save').onclick = () => {
 $('#notif').onclick = async () => {
   unlockAudio();
   const st = $('#notifStatus');
+  report('botao');
   const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  report('permissao', { result: perm });
   if (perm !== 'granted') { renderSettings(); return; }
   st.textContent = 'Conectando…';
   try {
     const sub = await doSync(true);
+    report('inscricao', { ok: !!sub, endpoint: sub ? new URL(sub.endpoint).host : null });
     if (!sub) { st.textContent = 'Este celular não aceitou o push.'; return; }
     const res = await fetch(PUSH_URL + '/test', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }),
     });
+    report('teste', { status: res.status });
     $('#notif').textContent = 'Mandar notificação de teste';
     st.textContent = res.ok ? 'Ativado ✓ A notificação de teste chega em alguns segundos.' : 'O servidor não conseguiu mandar o teste. Tente de novo.';
-  } catch (e) { st.textContent = 'Erro: ' + e.message; }
+  } catch (e) { st.textContent = 'Erro: ' + e.message; report('erro', { err: String(e && (e.name + ': ' + e.message)) }); }
 };
 $('#test').onclick = () => { unlockAudio(); startAlarm([{ name: 'Teste', time: 'agora' }]); alarmMeds = []; };
 
@@ -616,12 +632,14 @@ $('#sheetList').onchange = e => {
 $('#sheetClose').onclick = () => $('#sheet').classList.add('hidden');
 $('#sheet').onclick = e => { if (e.target.id === 'sheet') $('#sheet').classList.add('hidden'); };
 
-document.addEventListener('pointerdown', unlockAudio, { once: true });
+// o iPhone suspende o som quando o app vai pro fundo; qualquer toque religa
+document.addEventListener('pointerdown', unlockAudio);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); checkAlarm(); } });
 setInterval(() => { render(); checkAlarm(); }, 20000);
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 syncPush();
+report('abriu');
 render(); checkAlarm();
 if (!settings.configured) document.querySelector('[data-tab="settings"]').click();
 
