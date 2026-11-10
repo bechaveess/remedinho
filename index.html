@@ -158,6 +158,10 @@
 </nav>
 
 <main id="home">
+  <button class="card hidden" id="pushHint" style="width:100%;text-align:left;border-color:var(--accent);color:var(--ink)">
+    <b style="color:var(--accent)">🔔 Ative as notificações</b><br>
+    <span class="hint" style="margin:0">Sem isso os lembretes dos remédios não chegam com o app fechado. Toque aqui.</span>
+  </button>
   <section class="stats">
     <div class="stat hot"><b id="streak">0</b><span>doses seguidas 🔥</span></div>
     <div class="stat"><b id="total">0</b><span>doses tomadas</span></div>
@@ -366,6 +370,13 @@ function render() {
   if (allDone) $('#cheer').textContent = `Tudo certo por hoje${settings.who ? ', ' + settings.who : ''}! 💖`;
 
   renderCal();
+  renderPushHint();
+}
+
+function renderPushHint() {
+  const hint = $('#pushHint');
+  if (!settings.configured) { hint.classList.add('hidden'); return; }
+  pushSub(false).then(sub => hint.classList.toggle('hidden', !!sub)).catch(() => hint.classList.remove('hidden'));
 }
 
 function renderCal() {
@@ -583,6 +594,7 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'settings') { $('#who').value = settings.who || ''; renderSettings(); }
 });
 $('#doses').onclick = e => { const id = e.target.closest('[data-take]')?.dataset.take; if (id) toggleTake(keyOf(new Date()), id); };
+$('#pushHint').onclick = () => document.querySelector('[data-tab="settings"]').click() || $('#notif').scrollIntoView({ behavior: 'smooth', block: 'center' });
 $('#prev').onclick = () => { viewMonth.setMonth(viewMonth.getMonth() - 1); renderCal(); };
 $('#next').onclick = () => { viewMonth.setMonth(viewMonth.getMonth() + 1); renderCal(); };
 
